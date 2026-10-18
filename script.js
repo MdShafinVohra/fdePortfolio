@@ -1,83 +1,69 @@
 /**
  * Shafin — Forward Deployed Engineer portfolio
- * Smooth scroll and active nav highlight for the portfolio site.
+ * Mobile menu, active nav highlight, and the hero deploy sequence.
  */
 (function () {
   "use strict";
 
-  // Smooth scroll for all navigation links
-  document.querySelectorAll("a[href^='#']").forEach(function (link) {
-    link.addEventListener("click", function (e) {
-      e.preventDefault();
-      var targetId = link.getAttribute("href");
-      if (targetId === "#" || targetId === "") return;
+  // Mobile nav menu
+  var toggle = document.querySelector(".nav__toggle");
+  var links = document.querySelector(".nav__links");
 
-      var target = document.querySelector(targetId);
-      if (!target) return;
+  function setMenu(open) {
+    links.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+  }
 
-      var offset = 80; // offset for sticky nav
-      var top = target.getBoundingClientRect().top + window.pageYOffset - offset;
-
-      window.scrollTo({
-        top: top,
-        behavior: "smooth"
-      });
-
-      // Update URL without scroll jump
-      history.pushState(null, "", targetId);
-    });
+  toggle.addEventListener("click", function () {
+    setMenu(!links.classList.contains("is-open"));
   });
 
-  // Highlight active nav item on scroll
-  var sections = document.querySelectorAll("section");
+  links.addEventListener("click", function (e) {
+    if (e.target.tagName === "A") setMenu(false);
+  });
+
+  // Highlight the nav link for the section in view
   var navLinks = document.querySelectorAll(".nav__links a");
 
-  if (window.addEventListener) {
-    window.addEventListener("scroll", function () {
-      var scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-
-      sections.forEach(function (section) {
-        var top = section.getBoundingClientRect().top + scrollPos;
-        var bottom = top + section.offsetHeight;
-        var id = section.getAttribute("id");
-
+  if ("IntersectionObserver" in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
         navLinks.forEach(function (link) {
-          if (link.getAttribute("href") === "#" + id) {
-            var isActive = scrollPos >= top - 100 && scrollPos < bottom - 100;
-            link.style.color = isActive ? "var(--primary)" : "";
-          }
+          var match = link.getAttribute("href") === "#" + entry.target.id;
+          if (match) link.setAttribute("aria-current", "true");
+          else link.removeAttribute("aria-current");
         });
       });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+
+    document.querySelectorAll("main section").forEach(function (s) {
+      observer.observe(s);
     });
   }
 
-  // Mobile nav menu toggle
-  var nav = document.querySelector(".nav");
-  var menuToggle = document.createElement("button");
-  menuToggle.className = "nav__toggle";
-  menuToggle.setAttribute("aria-label", "Toggle menu");
-  menuToggle.innerHTML = "<span></span><span></span><span></span>";
+  // Hero deploy sequence: each target goes from queued to its final state, once
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var rows = document.querySelectorAll(".deploy__row");
+  var foot = document.querySelector(".deploy__foot");
 
-  // Insert toggle before logo
-  if (nav.querySelector(".nav__logo")) {
-    nav.insertBefore(menuToggle, nav.querySelector(".nav__logo"));
+  if (!reduce && rows.length) {
+    foot.textContent = "Deploying…";
+
+    rows.forEach(function (row, i) {
+      var state = row.querySelector(".deploy__state");
+      var final = state.textContent;
+
+      state.textContent = "queued";
+      row.classList.add("is-pending");
+
+      setTimeout(function () { state.textContent = "deploying"; }, 500 + i * 650);
+
+      setTimeout(function () {
+        state.textContent = final;
+        row.classList.remove("is-pending");
+        if (i === rows.length - 1) foot.textContent = "All targets live";
+      }, 1100 + i * 650);
+    });
   }
-
-  // Only enable toggle on mobile screens
-  function checkMobile() {
-    var isMobile = window.innerWidth <= 640;
-    menuToggle.style.display = isMobile ? "block" : "none";
-  }
-
-  window.addEventListener("resize", checkMobile);
-  checkMobile();
-
-  // Toggle mobile menu
-  menuToggle.addEventListener("click", function () {
-    var links = document.querySelector(".nav__links");
-    if (!links) return;
-
-    // Add a temporary class to show links
-    links.classList.toggle("nav__links--open");
-  });
 })();
